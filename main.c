@@ -3,15 +3,18 @@
 #include "MK64F12.h"
 
 #define PIN21_MASK           (1u << 21)
+#define PIN22_MASK	     (1u << 22) //PIN Mask for red LED
 
-void blue_init(void);
+void leds_init(void);
 void blue_toggle(void);
+void red_toggle(void);
 void PIT_init(void);
 void PIT0_IRQHandler(void);
+void PIT1_IRQHandler(void);
 
 int main(void)
 {
-    blue_init();
+    leds_init();
     PIT_init();
     while (true) {
     }
@@ -19,24 +22,34 @@ int main(void)
     return 0;
 }
 
-void blue_init(void) {
+void leds_init(void) {
     /* Enable the clock to PORT B */
     SIM_SCGC5 |= SIM_SCGC5_PORTB_MASK;
 
-    /* Select the GPIO function (Alternative 1) for pin 21 of PORT B */
+    /* Select the GPIO function (Alternative 1) for pin 21 and 21 of PORT B */
     PORTB_PCR21 &= ~PORT_PCR_MUX_MASK;
     PORTB_PCR21 |= (1u << PORT_PCR_MUX_SHIFT);
 
-    /* Set the data direction for pin 21 of PORT B to output */
-    GPIOB_PDDR |= PIN21_MASK;
+   PORTB_PCR22 &= ~PORT_PCR_MUX_MASK;
+   PORTB_PCR22 |= (1u << PORT_PCR_MUX_SHIFT);
 
-    /* LED off initially */
+    /* Set the data direction for pin 21 and 22 of PORT B to output */
+    GPIOB_PDDR |= PIN21_MASK;
+    GPIOB_PDDR |= PIN22_MASK;
+
+    /* LEDs off initially */
     GPIOB_PDOR |= PIN21_MASK;
+    GPIOB_PDOR |= PIN22_MASK;
 }
 
 void blue_toggle(void) {
     /* Blue LED, ON <- OFF, OFF <- ON */
     GPIOB_PDOR ^= PIN21_MASK; 
+}
+
+void red_toggle(void)
+{
+	GPIOB_PDOR ^= PIN22_MASK;
 }
 
 void PIT_init(void) {
@@ -52,6 +65,12 @@ void PIT_init(void) {
     NVIC_EnableIRQ(PIT0_IRQn);
     /* Start the timer running */
     PIT_TCTRL_REG(PIT, 0) |= PIT_TCTRL_TEN_MASK;
+
+   //ENABELING PIT FOR RED LED
+   PIT_LDVAL_REG(PIT, 1) = 11999999;
+   PIT_TCTRL_REG(PIT, 1) |= PIT_TCTRL_TIE_MASK;
+   NVIC_EnableIRQ(PIT1_IRQn);
+   PIT_TCTRL_REG(PIT, 0) |= PIT_TCTRL_TEN_MASK;
 }
 
 void PIT0_IRQHandler(void) {
@@ -59,4 +78,10 @@ void PIT0_IRQHandler(void) {
     blue_toggle();
     /* Clear the timer interrupt flag to allow further timer interrupts */
     PIT_TFLG_REG(PIT,0) |= PIT_TFLG_TIF_MASK;
+}
+
+void PIT1_IRQHandler(void)
+{
+   red_toggle();
+   PIT_TFLG_REG(PIT, 1) |= PIT_TFLG_TIF_MASK;
 }
